@@ -3,6 +3,10 @@ const express = require("express")
 const cors = require("cors")
 const db = require("./config/database")
 
+const jwt = require ("jsonwebtoken")
+
+const auth = require("./middleware/auth")
+
 const app = express()
 
 const PORT = 3001
@@ -16,9 +20,48 @@ app.get("/",(req,res)=>{
     })
 })
 
+app.post("/login", async (req, res) => {
+    const {email, senha} = req.body
+
+    try{
+        const [usuarios] = await db.query(
+            'SELECT * FROM usuario WHERE email = ?',
+            [email]
+        )
+        const usuario = usuarios[0]
+        if(usuario.length === 0){
+            return res.status(401).json({mensagem:"Email ou senha não encontrados"})
+        }
+
+        if(usuario.senha !== senha){
+            return res.status(401).json({
+                mensagem:"Email ou senha inválidos"
+            })
+        }
+
+        const token = jwt.sign(
+            {
+                id: usuario.id,
+                email: usuario.email
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: '1h'
+            }
+        )
+
+        res.json({
+            token
+        })
+    
+    }catch(error){
+        console.log(error)
+    }
+
+})
 
 
-app.get("/produtos",async(req,res)=>{
+app.get("/produtos", auth, async(req,res)=>{
 
     try {
         const [produtos]= await db.query(
